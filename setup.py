@@ -17,6 +17,8 @@ setup(
     long_description=long_description,
     url='https://github.com/peterservice-rnd/robotframework-apachetomcat',
     license='Apache License, Version 2.0',
+    author='JSC PETER-SERVICE',
+    author_email='drse_aist_all@billing.ru',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
