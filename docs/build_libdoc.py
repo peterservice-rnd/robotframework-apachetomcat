@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""Script to generate library documentation using module libdoc."""
 
 from os.path import dirname, join, realpath
 from robot.libdoc import libdoc
