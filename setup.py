@@ -10,6 +10,10 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
+# Get install requires from requirements.txt
+with open(path.join(here, 'requirements.txt')) as f:
+    requirements = f.read().splitlines()
+
 setup(
     name='robotframework-apachetomcat',
     version='1.0.0',
@@ -33,5 +37,5 @@ setup(
     keywords='testing robotframework apache tomcat',
     package_dir={'': 'src'},
     py_modules=['ApacheTomcatManager'],
-    install_requires=['requests', 'robotframework'],
+    install_requires=requirements,
 )
