@@ -34,6 +34,10 @@ To use this library you need to add a user with the following roles to `tomcat-u
 </tomcat-users>
 ```
 
+## Documentation
+
+See keyword documentation for ApacheTomcatManager library on [GitHub](https://github.com/peterservice-rnd/robotframework-apachetomcat/tree/master/docs).
+
 ## Example
 
 An example of using ApacheTomcatManager library in Robot Framework test case:
