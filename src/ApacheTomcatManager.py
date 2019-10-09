@@ -1,22 +1,25 @@
 # -*- coding: utf-8 -*-
 
+import requests
+from typing import Dict, List, Optional, Union
+from urllib.parse import quote
+
 from robot.api import logger
 from robot.utils import ConnectionCache
-import requests
 
 
 class RequestConnection(object):
     """This class contains settings to connect to Apache Tomcat server via HTTP."""
-    def __init__(self, host, port, username, password, timeout):
-        """Initialisation.
+
+    def __init__(self, host: str, port: int, username: str, password: str, timeout: int) -> None:
+        """Initialization.
 
         *Args:*\n
-        _host_ - server host name;\n
-        _port_ - port number;\n
-        _username_ - user name;\n
-        _password_ - user password;\n
-        _timeout_ - connection timeout;\n
-
+            _host_ - server host name;\n
+            _port_ - port number;\n
+            _username_ - user name;\n
+            _password_ - user password;\n
+            _timeout_ - connection timeout;\n
         """
         self.host = host
         self.port = port
@@ -24,7 +27,7 @@ class RequestConnection(object):
         self.auth = (username, password)
         self.timeout = timeout
 
-    def close(self):
+    def close(self) -> None:
         """Close connection."""
         pass
 
@@ -70,26 +73,26 @@ class ApacheTomcatManager(object):
 
     ROBOT_LIBRARY_SCOPE = 'GLOBAL'
 
-    def __init__(self):
+    def __init__(self) -> None:
         """ Initialization. """
-        self._connection = None
-        self.headers = {}
+        self._connection: Optional[RequestConnection] = None
+        self.headers: Dict[str, str] = {}
         self._cache = ConnectionCache()
 
-    def connect_to_tomcat(
-            self, host, port, username='tomcat', password='tomcat', timeout=15, alias=None):
+    def connect_to_tomcat(self, host: str, port: Union[int, str], username: str = 'tomcat', password: str = 'tomcat',
+                          timeout: Union[int, str] = 15, alias: str = None) -> int:
         """Connect to Apache Tomcat server.
 
         *Args:*\n
-        _host_ - server host name;\n
-        _port_ - port name;\n
-        _username_ - user name;\n
-        _password_ - user password;\n
-        _timeout_ - connection timeout;\n
-        _alias_ - connection alias;\n
+            _host_ - server host name;\n
+            _port_ - port name;\n
+            _username_ - user name;\n
+            _password_ - user password;\n
+            _timeout_ - connection timeout;\n
+            _alias_ - connection alias;\n
 
         *Returns:*\n
-        The current connection index.
+            The current connection index.
 
         *Example:*\n
         | Connect To Tomcat | my_host_name | 8080 | tomcat | tomcat | alias=tmc1 |
@@ -98,22 +101,22 @@ class ApacheTomcatManager(object):
         timeout = int(timeout)
         self.headers["Content-Type"] = "text/plain"
 
-        logger.debug('Connecting using : host=%s, port=%d, username=%s, password=%s, timeout=%d, alias=%s ' % (
-            host, port, username, password, timeout, alias))
+        logger.debug(f'Connecting using : host={host}, port={port}, username={username}, password={password}, '
+                     f'timeout={timeout}, alias={alias}')
 
         self._connection = RequestConnection(host, port, username, password, timeout)
         return self._cache.register(self._connection, alias)
 
-    def switch_tomcat_connection(self, index_or_alias):
+    def switch_tomcat_connection(self, index_or_alias: Union[int, str]) -> int:
         """Switch between active Apache Tomcat connections, using their index or alias.
 
         Alias is set in keyword [#Connect To Tomcat|Connect To Tomcat], which also returns the index of connection.
 
         *Args:*\n
-        _index_or_alias_ - connection index or alias;
+            _index_or_alias_ - connection index or alias;
 
         *Returns:*\n
-        The index of previous connection.
+            The index of previous connection.
 
         *Example:*\n
         | Connect To Tomcat | my_host_name_1 | 8080 | tomcat | tomcat | alias=rmq1 |
@@ -128,19 +131,18 @@ class ApacheTomcatManager(object):
         self._connection = self._cache.switch(index_or_alias)
         return old_index
 
-    def disconnect_from_tomcat(self):
+    def disconnect_from_tomcat(self) -> None:
         """Close the current connection with Apache Tomcat.
 
         *Example:*\n
         | Connect To Tomcat | my_host_name | 8080 | tomcat | tomcat | alias=rmq1 |
         | Disconnect From Tomcat |
         """
-        logger.debug(
-            'Close connection with : host=%s, port=%d  ' %
-            (self._connection.host, self._connection.port))
-        self._connection.close()
+        if self._connection:
+            logger.debug(f'Close connection with : host={self._connection.host}, port={self._connection.port}')
+            self._connection.close()
 
-    def close_all_tomcat_connections(self):
+    def close_all_tomcat_connections(self) -> None:
         """Close all connections with Apache Tomcat.
 
         This keyword is used to close all connections only in case if there are several open connections.
@@ -155,15 +157,15 @@ class ApacheTomcatManager(object):
         """
         self._connection = self._cache.close_all()
 
-    def list(self):
+    def list(self) -> List[List[str]]:
         """Get list of installed applications.
 
         *Returns:*\n
-        List of installed web applications of following format:
-        | application path | running status | number of sessions | application name |
+            List of installed web applications of following format:
+            | application path | running status | number of sessions | application name |
 
         *Raises:*\n
-        raise HTTPError if the HTTP request returned an unsuccessful status code.
+            raise HTTPError if the HTTP request returned an unsuccessful status code.
 
         *Example:*\n
         | ${list}=  |  List |
@@ -177,29 +179,30 @@ class ApacheTomcatManager(object):
         | /dcs | running | 0 | dcs |
         | /host-manager | running | 0 | host-manager |
         """
+        if self._connection is None:
+            raise Exception('No open connection to Apache Tomcat server.')
+
         apps = []
-        url = self._connection.url + '/list'
-        logger.debug('Prepared request with method GET to ' + url)
-        response = requests.get(url, auth=self._connection.auth,
-                                headers=self.headers,
-                                timeout=self._connection.timeout)
+        url = f'{self._connection.url}/list'
+        logger.debug(f'Prepared request with method GET to {url}')
+        response = requests.get(url, auth=self._connection.auth, headers=self.headers, timeout=self._connection.timeout)
         response.raise_for_status()
         resp_list = response.text.split('\n')
         for lines in resp_list[1:-1]:
             apps.append(lines.split(':'))
         return apps
 
-    def application_status(self, path):
+    def application_status(self, path: str) -> str:
         """Get the web application running status.
 
         *Args:*\n
-        _path_ - path to the web application;
+            _path_ - path to the web application;
 
         *Returns:*\n
-        The web application running status: running, stopping.
+            The web application running status: running, stopping.
 
         *Raises:*\n
-        raise Exception в том случае, если web-приложение не загружено на Apache Tomcat.
+            raise Exception в том случае, если web-приложение не загружено на Apache Tomcat.
 
         *Example:*\n
         | ${status}=  |  Application Status  |  /dcs-workbench |
@@ -210,19 +213,16 @@ class ApacheTomcatManager(object):
         for app_name, status, _, _ in app_list:
             if app_name == path:
                 return status
-        raise Exception(
-            'Application with path "' +
-            path +
-            '" not found on Apache Tomcat')
+        raise Exception(f'Application with path "{path}" not found on Apache Tomcat')
 
-    def serverinfo(self):
+    def serverinfo(self) -> Dict[str, str]:
         """Get information about server.
 
         *Returns:*\n
-        Information of Apache Tomcat server in dictionary format.
+            Information of Apache Tomcat server in dictionary format.
 
         *Raises:*\n
-        raise HTTPError if the HTTP request returned an unsuccessful status code.
+            raise HTTPError if the HTTP request returned an unsuccessful status code.
 
         *Example:*\n
         | ${info}=  |  Serverinfo  |
@@ -235,12 +235,13 @@ class ApacheTomcatManager(object):
         | OS Version: 2.6.32-279.el6.x86_64
         | Tomcat Version: Apache Tomcat/7.0.22
         """
+        if self._connection is None:
+            raise Exception('No open connection to Apache Tomcat server.')
+
         serverinfo = {}
-        url = self._connection.url + '/serverinfo'
-        logger.debug('Prepared request with method GET to ' + url)
-        response = requests.get(url, auth=self._connection.auth,
-                                headers=self.headers,
-                                timeout=self._connection.timeout)
+        url = f'{self._connection.url}/serverinfo'
+        logger.debug(f'Prepared request with method GET to {url}')
+        response = requests.get(url, auth=self._connection.auth, headers=self.headers, timeout=self._connection.timeout)
         response.raise_for_status()
         resp_list = response.text.split('\n')
 
@@ -249,68 +250,68 @@ class ApacheTomcatManager(object):
             serverinfo[key] = value.lstrip()
         return serverinfo
 
-    def application_stop(self, path):
+    def application_stop(self, path: str) -> None:
         """Stop the running web application.
 
         *Args:*\n
-        _path_ - path to web application;
+            _path_ - path to web application;
 
         *Raises:*\n
-        raise Exception in case the web application could not be stopped.
+            raise Exception in case the web application could not be stopped.
 
         *Example:*\n
         |  Application Stop  |  /dcs-workbench |
         """
-        url = self._connection.url + '/stop?path=%s' % requests.utils.quote(path)
-        logger.debug('Prepared request with method GET to ' + url)
-        response = requests.get(url, auth=self._connection.auth,
-                                headers=self.headers,
-                                timeout=self._connection.timeout)
-        logger.debug('Response: %s' % response.text)
-        if response.text != 'OK - Stopped application at context path ' + \
-                path + '\n':
+        if self._connection is None:
+            raise Exception('No open connection to Apache Tomcat server.')
+
+        url = f'{self._connection.url}/stop?path={quote(path)}'
+        logger.debug(f'Prepared request with method GET to {url}')
+        response = requests.get(url, auth=self._connection.auth, headers=self.headers, timeout=self._connection.timeout)
+        logger.debug(f'Response: {response.text}')
+        if response.text != f'OK - Stopped application at context path {path}\n':
             raise Exception('Application  is not stopped:\n' + response.text)
 
-    def application_start(self, path):
+    def application_start(self, path: str) -> None:
         """Start web application.
 
         *Args:*\n
-        _path_ - path to web application;
+            _path_ - path to web application;
 
         *Raises:*\n
-        raise Exception in case the web application could not be stopped.
+            raise Exception in case the web application could not be stopped.
 
         *Example:*\n
         |  Application Start  |  /dcs-workbench |
         """
-        url = self._connection.url + '/start?path=%s' % requests.utils.quote(path)
-        logger.debug('Prepared request with method GET to ' + url)
-        response = requests.get(url, auth=self._connection.auth,
-                                headers=self.headers,
-                                timeout=self._connection.timeout)
-        logger.debug('Response: %s' % response.text)
-        if response.text != 'OK - Started application at context path ' + \
-                path + '\n':
+        if self._connection is None:
+            raise Exception('No open connection to Apache Tomcat server.')
+
+        url = f'{self._connection.url}/start?path={quote(path)}'
+        logger.debug(f'Prepared request with method GET to {url}')
+        response = requests.get(url, auth=self._connection.auth, headers=self.headers, timeout=self._connection.timeout)
+        logger.debug(f'Response: {response.text}')
+        if response.text != f'OK - Started application at context path {path}\n':
             raise Exception('Application  is not started:\n' + response.text)
 
-    def application_reload(self, path):
+    def application_reload(self, path: str) -> None:
         """Reload web application.
 
         *Args:*\n
-        _path_ - path to web application;
+            _path_ - path to web application;
 
         *Raises:*\n
-        raise Exception in case the web application could not be stopped.
+            raise Exception in case the web application could not be stopped.
 
         *Example:*\n
         |  Application Reload  |  /dcs-workbench |
         """
-        url = self._connection.url + '/reload?path=%s' % requests.utils.quote(path)
-        logger.debug('Prepared request with method GET to ' + url)
-        response = requests.get(url, auth=self._connection.auth,
-                                headers=self.headers,
-                                timeout=self._connection.timeout)
-        logger.debug('Response: %s' % response.text)
-        if response.text != 'OK - Reloaded application at context path ' + \
-                path + '\n':
+        if self._connection is None:
+            raise Exception('No open connection to Apache Tomcat server.')
+
+        url = f'{self._connection.url}/reload?path={quote(path)}'
+        logger.debug(f'Prepared request with method GET to {url}')
+        response = requests.get(url, auth=self._connection.auth, headers=self.headers, timeout=self._connection.timeout)
+        logger.debug(f'Response: {response.text}')
+        if response.text != f'OK - Reloaded application at context path {path}\n':
             raise Exception('Application  is not started:\n' + response.text)
